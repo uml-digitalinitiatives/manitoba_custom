@@ -1,0 +1,7 @@
+name: Module name
+type: module
+description: 'A description of what your module does.'
+core: 9.x
+core_version_requirement: ^9.3 || ^10 || ^11
+dependencies:
+  - drupal:views

@@ -1,0 +1,17 @@
+<?php
+/**
+* @file
+* A description of what your module does.
+*/
+function manitoba_custom_help($route_name, RouteMatchInterface $route_match)
+{
+  switch ($route_name) {
+    case 'help.page.manitoba_custom':
+      $output = '';
+      $output .= '<h3>' . t('About') . '</h3>';
+      $output .= '<p>' . t('Manitoba Custom provides customizations for the University of Manitoba Drupal distribution.') . '</p>';
+      return $output;
+
+    default:
+  }
+}
