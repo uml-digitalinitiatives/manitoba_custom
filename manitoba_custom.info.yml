@@ -5,4 +5,5 @@ description: 'Provides customizations for the University of Manitoba Drupal dist
 core: 9.x
 core_version_requirement: ^9.3 || ^10 || ^11
 dependencies:
+  - drupal:field
   - drupal:views

@@ -13,13 +13,10 @@ use Drupal\views\Views;
  * Plugin implementation of the 'views page' formatter.
  *
  * @FieldFormatter(
- *   id = "views_page_formatter",
+ *   id = "manitoba_custom_views_page_formatter",
  *   label = @Translation("Prints a Linked Data field as a link to an internal view."),
  *   field_types = {
  *     "linked_data_field",
- *     "lcsubject_field",
- *     "grid_id_field",
- *     "crossref_funder_field",
  *   }
  * )
  */
