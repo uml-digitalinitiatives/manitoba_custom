@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\linked_data_field\Plugin\Field\FieldFormatter;
+namespace Drupal\manitoba_custom\Plugin\Field\FieldFormatter;
 
 use Drupal\Component\Utility\NestedArray;
 use Drupal\Core\Field\FieldItemListInterface;

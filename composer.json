@@ -1,0 +1,7 @@
+{
+    "name": "drupal/manitoba_custom",
+    "description": "Custom module for the University of Manitoba Libraries",
+    "type": "drupal-module",
+    "minimum-stability": "dev",
+    "license": "GPL-2.0-or-later"
+}

@@ -1,6 +1,7 @@
-name: Module name
+name: Manitoba Custom
 type: module
-description: 'A description of what your module does.'
+package: Custom
+description: 'Provides customizations for the University of Manitoba Drupal distribution'
 core: 9.x
 core_version_requirement: ^9.3 || ^10 || ^11
 dependencies:
