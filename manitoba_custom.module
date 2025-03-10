@@ -18,3 +18,13 @@ function manitoba_custom_help($route_name, RouteMatchInterface $route_match)
     default:
   }
 }
+
+
+function manitoba_custom_preprocess_mirador(&$variables) {
+  if (isset($variables['mirador_view_id']) &&
+    isset($variables['#attached']['drupalSettings']['mirador']['viewers']['#' . $variables['mirador_view_id']])) {
+    $config = &$variables['#attached']['drupalSettings']['mirador']['viewers']['#' . $variables['mirador_view_id']];
+    $config['window']['allowClose'] = FALSE;
+    $config['workspaceControlPanel']['enabled'] = FALSE;
+  }
+}
