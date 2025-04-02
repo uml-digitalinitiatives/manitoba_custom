@@ -7,3 +7,6 @@ core_version_requirement: ^9.3 || ^10 || ^11
 dependencies:
   - drupal:field
   - drupal:views
+  - drupal:search_api
+  - drupal:search_api_solr
+  - drupal:islandora

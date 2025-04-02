@@ -4,8 +4,12 @@ use Drupal\Core\Routing\RouteMatchInterface;
 
 /**
 * @file
-* A description of what your module does.
+* Customizations for the University of Manitoba Islandora distribution.
 */
+
+/**
+ * Implements hook_help().
+ */
 function manitoba_custom_help($route_name, RouteMatchInterface $route_match)
 {
   switch ($route_name) {
@@ -19,12 +23,15 @@ function manitoba_custom_help($route_name, RouteMatchInterface $route_match)
   }
 }
 
-
+/**
+ * Implements THEME_preprocess_HOOK() for mirador templates.
+ */
 function manitoba_custom_preprocess_mirador(&$variables) {
   if (isset($variables['mirador_view_id']) &&
     isset($variables['#attached']['drupalSettings']['mirador']['viewers']['#' . $variables['mirador_view_id']])) {
     $config = &$variables['#attached']['drupalSettings']['mirador']['viewers']['#' . $variables['mirador_view_id']];
     $config['window']['allowClose'] = FALSE;
     $config['workspaceControlPanel']['enabled'] = FALSE;
+    // $config['window']['defaultView'] = 'book';
   }
 }

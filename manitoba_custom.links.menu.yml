@@ -1,0 +1,5 @@
+system.admin_config_manitoba_custom:
+  title: Manitoba Custom
+  parent: system.admin_config_islandora
+  route_name: system.manitoba_custom
+  weight: 100

@@ -1,0 +1,19 @@
+system.manitoba_custom:
+  path: '/admin/config/islandora/manitoba_custom'
+  defaults:
+    _form: '\Drupal\manitoba_custom\Form\SettingsForm'
+    _title: 'Manitoba Custom Settings'
+  requirements:
+    _permission: 'administer site configuration'
+
+manitoba_custom_pid_redirector:
+  path: '/islandora/object/{pid}'
+  defaults:
+    _controller: '\Drupal\manitoba_custom\Controller\PidRedirectorController::pidRedirect'
+    _title: 'Redirect'
+  options:
+    parameters:
+      pid:
+        type: 'string'
+  requirements:
+    _permission: 'access content'
