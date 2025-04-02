@@ -6,7 +6,7 @@ system.manitoba_custom:
   requirements:
     _permission: 'administer site configuration'
 
-manitoba_custom_pid_redirector:
+manitoba_custom.pid_redirector:
   path: '/islandora/object/{pid}'
   defaults:
     _controller: '\Drupal\manitoba_custom\Controller\PidRedirectorController::pidRedirect'

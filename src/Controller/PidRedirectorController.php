@@ -7,6 +7,7 @@ use Drupal\search_api\IndexInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 class PidRedirectorController extends ControllerBase
 {
@@ -62,6 +63,6 @@ class PidRedirectorController extends ControllerBase
           $this->messenger()->addError(t('Multiple results found for PID: @pid', ['@pid' => $pid]));
       }
     }
-    return new RedirectResponse('/');
+    throw new NotFoundHttpException();
   }
 }
