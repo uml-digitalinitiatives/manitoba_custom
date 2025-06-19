@@ -1,0 +1,15 @@
+services:
+  manitoba_custom.settings_form:
+    class: Drupal\manitoba_custom\Form\SettingsForm
+    arguments: [ '@config.factory', '@config.typed', '@entity_type.bundle.info', '@entity_field.manager' ]
+    tags:
+      - { name: 'form', id: manitoba_custom.settings }
+  manitoba_custom.logger:
+    class: Drupal\Core\Logger\LoggerChannelInterface
+    factory: [ '@logger.factory', get ]
+    arguments: [ 'manitoba_custom' ]
+  manitoba_custom.simple_legacy_redirector:
+    class: Drupal\manitoba_custom\Controller\SimpleLegacyController
+    arguments: [ '@entity_type.manager', '@config.factory']
+    tags:
+      - { name: 'controller', id: manitoba_custom.simple_legacy_redirector }

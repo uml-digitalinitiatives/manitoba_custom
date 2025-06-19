@@ -2,7 +2,9 @@
 
 namespace Drupal\manitoba_custom\Form;
 
-use Drupal\Core\Entity\EntityStorageInterface;
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Entity\EntityFieldManagerInterface;
+use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -11,21 +13,42 @@ class SettingsForm extends ConfigFormBase
 {
 
   /**
-   * The entity storage service.
+   * The entity field manager service.
    *
-   * @var \Drupal\Core\Entity\EntityStorageInterface
+   * @var \Drupal\Core\Entity\EntityFieldManagerInterface
    */
-  private EntityStorageInterface $storage;
+  protected EntityFieldManagerInterface $entityFieldManager;
+
+  /**
+   * The entity type bundle info service.
+   *
+   * @var \Drupal\Core\Entity\EntityTypeBundleInfoInterface
+   */
+  protected EntityTypeBundleInfoInterface $entityTypeBundleInfo;
+
+  /**
+   * The configuration name.
+   */
+  public const CONFIG_NAME = 'manitoba_custom.settings';
 
   /**
    * SettingsForm constructor.
    *
-   * @param \Drupal\Core\Entity\EntityStorageInterface $storage
-   *   The entity storage service.
+   * @param \Drupal\Core\Config\ConfigFactoryInterface $configFactory
+   *  The configuration factory service.
+   * @param \Drupal\Core\Config\TypedConfigManagerInterface $typedConfigManager
+   *  The typed configuration manager service.
    */
-  public function __construct(EntityStorageInterface $storage)
+  public function __construct(
+    ConfigFactoryInterface $configFactory,
+    protected $typedConfigManager = NULL,
+    EntityTypeBundleInfoInterface $bundleInfo,
+    EntityFieldManagerInterface $entityFieldManager,
+  )
   {
-    $this->storage = $storage;
+    $this->entityFieldManager = $entityFieldManager;
+    $this->entityTypeBundleInfo = $bundleInfo;
+    parent::__construct($configFactory, $typedConfigManager);
   }
 
   /**
@@ -34,7 +57,10 @@ class SettingsForm extends ConfigFormBase
   public static function create(ContainerInterface $container)
   {
     return new static(
-      $container->get('entity_type.manager')->getStorage('search_api_index')
+      $container->get('config.factory'),
+      $container->get('config.typed'),
+      $container->get('entity_type.bundle.info'),
+      $container->get('entity_field.manager')
     );
   }
 
@@ -51,7 +77,7 @@ class SettingsForm extends ConfigFormBase
    */
   public function getFormId()
   {
-    return 'manitoba_custom_settings';
+    return self::CONFIG_NAME;
   }
 
   /**
@@ -63,71 +89,56 @@ class SettingsForm extends ConfigFormBase
 
     $config = $this->config('manitoba_custom.settings');
 
-    // Load all the Solr indexes.
-    $entity_index = $this->storage->loadMultiple();
-    $indexes = [];
-    foreach ($entity_index as $index) {
-      $indexes[$index->id()] = $this->t($index->label());
+    $bundles = $this->entityTypeBundleInfo->getBundleInfo('node');
+    $bundle_options = ['' => $this->t('- Select -')];
+    foreach ($bundles as $bundle_machine_name => $bundle_info) {
+      $bundle_options[$bundle_machine_name] = $bundle_info['label'];
     }
-
-    $pid_field = $form_state->getValue('pid_field', $config->get('pid_field'));
-    $solr_index = $form_state->getValue('solr_index', $config->get('solr_index'));
-
-    if (empty($indexes)) {
-      $form['no_indexes'] = [
-        '#markup' => $this->t('No Solr indexes available.'),
-      ];
-    } else {
-      $indexes = ['' => $this->t('- Select -')] + $indexes;
-      $form['solr_index'] = [
+    $bundle_choice = $form_state->getValue('redirect_node_type', $config->get('redirect_node_type'));
+    $form['pid_redirector'] = [
+      '#type' => 'fieldset',
+      '#title' => $this->t('Islandora Legacy Redirector'),
+      '#description' => $this->t('Settings for the Islandora Legacy Redirector.'),
+      '#prefix' => '<div id="pid-redirector-wrapper">',
+      '#suffix' => '</div>',
+      'redirect_node_type' => [
         '#type' => 'select',
-        '#title' => $this->t('Solr Index'),
-        '#description' => $this->t('The index containing both the PID field and the current Node ID.'),
-        '#options' => $indexes,
-        '#default_value' => $solr_index,
+        '#title' => $this->t('Node Type'),
+        '#description' => $this->t('The node type to use for the legacy redirector.'),
+        '#options' => $bundle_options,
+        '#default_value' => $bundle_choice,
         '#ajax' => [
-          'callback' => '::updatePidField',
-          'wrapper' => 'pid-field-wrapper',
+          'callback' => '::updateRedirectFields',
+          'wrapper' => 'pid-redirector-wrapper',
           'event' => 'change',
         ],
-      ];
+      ],
+    ];
+    $fields = null;
+    if (!empty($bundle_choice)) {
+      $bundle_fields = $this->entityFieldManager->getFieldDefinitions('node', $bundle_choice);
       $fields = ['' => $this->t('- Select -')];
-      if (!empty($solr_index)) {
-        $selected_index = $this->storage->load($solr_index)->getFields();
-        foreach ($selected_index as $index) {
-          $fields[$index->getFieldIdentifier()] = $this->t($index->getLabel());
-        }
-        if (!array_key_exists('nid', $fields)) {
-          $form_state->setErrorByName('solr_index', $this->t('The selected index does not contain the an ID (nid) field.'));
+      foreach ($bundle_fields as $field_name => $field_definition) {
+        if ($field_definition->getType() == 'string') {
+          $fields[$field_name] = $this->t($field_definition->getLabel());
         }
       }
-
-      $form['pid_field'] = [
-        '#type' => (!empty($solr_index) ? 'select' : 'hidden'),
-        '#title' => $this->t('PID Field'),
-        '#prefix' => '<div id="pid-field-wrapper">',
-        '#suffix' => '</div>',
-        '#default_value' => $pid_field,
-        '#description' => $this->t('The field containing the PID.'),
-        '#options' => $fields,
-      ];
-
+      if (!array_key_exists('nid', $bundle_fields)) {
+        $form_state->setErrorByName(
+          'redirect_node_type',
+          $this->t('The selected node type does not contain the an ID (nid) field.')
+        );
+      }
     }
+    $form['pid_redirector']['redirect_node_field'] = [
+      '#type' => (!empty($bundle_choice) ? 'select' : 'hidden'),
+      '#title' => $this->t('Redirect Node Field'),
+      '#description' => $this->t('The field containing the legacy PID.'),
+      '#options' => $fields,
+      '#default_value' => $form_state->getValue('redirect_node_field', $config->get('redirect_node_field')),
+    ];
+
     return $form;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function validateForm(array &$form, FormStateInterface $form_state)
-  {
-    parent::validateForm($form, $form_state);
-    if (empty($form_state->getValue('solr_index'))) {
-      $form_state->setErrorByName('solr_index', $this->t('The Solr index is required.'));
-    }
-    if (empty($form_state->getValue('pid_field'))) {
-      $form_state->setErrorByName('pid_field', $this->t('The PID field is required.'));
-    }
   }
 
   /**
@@ -135,18 +146,18 @@ class SettingsForm extends ConfigFormBase
    */
   public function submitForm(array &$form, FormStateInterface $form_state) {
     $this->config('manitoba_custom.settings')
-      ->set('solr_index', $form_state->getValue('solr_index'))
-      ->set('pid_field', $form_state->getValue('pid_field'))
+      ->set('redirect_node_type', $form_state->getValue('redirect_node_type'))
+      ->set('redirect_node_field', $form_state->getValue('redirect_node_field'))
       ->save();
 
     parent::submitForm($form, $form_state);
   }
 
   /**
-   * Ajax callback to update the PID field based on the selected Solr index.
+   * Ajax callback to update the PID field select based on the selected content bundle.
    */
-  public function updatePidField(array &$form, FormStateInterface $form_state)
-  {
-    return $form['pid_field'];
+  public function updateRedirectFields(array &$form, FormStateInterface $form_state) {
+    return $form['pid_redirector'];
   }
+
 }

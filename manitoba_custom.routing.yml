@@ -9,7 +9,7 @@ system.manitoba_custom:
 manitoba_custom.pid_redirector:
   path: '/islandora/object/{pid}'
   defaults:
-    _controller: '\Drupal\manitoba_custom\Controller\PidRedirectorController::pidRedirect'
+    _controller: '\Drupal\manitoba_custom\Controller\SimpleLegacyController::pidRedirect'
     _title: 'Redirect'
   options:
     parameters:
