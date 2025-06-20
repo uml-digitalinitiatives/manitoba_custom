@@ -1,0 +1,29 @@
+<?php
+/**
+ * @file Customizations for the University of Manitoba Drupal distribution.
+ */
+
+/**
+ * Implements hook_update_N().
+ *
+ * This update is to alter the legacy redirector configuration.
+ */
+function manitoba_custom_update_10001(): void
+{
+  $config_factory = \Drupal::configFactory();
+  $config = $config_factory->getEditable('manitoba_custom.settings');
+  $old_bundle = $config->get('redirect_node_type');
+  $old_field = $config->get('redirect_node_field');
+  // If the old bundle and field are set, we need to migrate them to the new configuration format.
+  if ($old_bundle && $old_field) {
+    $mappings = $config->get('redirect_mappings') ?: [];
+    $mappings[] = [
+      'node_type' => $old_bundle,
+      'field' => $old_field,
+    ];
+    $config->set('redirect_mappings', $mappings);
+    $config->clear('redirect_node_type');
+    $config->clear('redirect_node_field');
+  }
+  $config->save(TRUE);
+}

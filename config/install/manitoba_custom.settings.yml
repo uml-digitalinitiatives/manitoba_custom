@@ -1,2 +1,4 @@
-redirect_node_type: islandora_object
-redirect_node_field: field_pid
+redirect_mappings:
+  -
+    node_type: 'islandora_object'
+    field: 'field_pid'

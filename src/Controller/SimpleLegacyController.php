@@ -17,11 +17,11 @@ class SimpleLegacyController extends ControllerBase
   protected $configFactory;
 
   /**
-   * The field name that contains the Legacy PID to use for the redirect.
+   * The field names that contains the Legacy PID to use for the redirect.
    *
-   * @var string
+   * @var array<string>
    */
-  private $field_name;
+  private $field_names;
 
 
   /**
@@ -49,29 +49,38 @@ class SimpleLegacyController extends ControllerBase
 
   /**
    * Lazy load the PID field name.
-   * @return string
+   * @return array<string>
    */
-  private function getFieldName(): string {
-    if (empty($this->field_name)) {
+  private function getFieldNames(): array {
+    if (empty($this->field_names)) {
       $config = $this->configFactory->get('manitoba_custom.settings');
-      $this->field_name = $config->get('redirect_node_field');
+      $mappings = $config->get('redirect_mappings');
+      if (is_array($mappings) && !empty($mappings)) {
+        $this->field_names = array_unique(
+          array_map(function ($mapping) {
+          return $mapping['field'];
+        }, $mappings));
+      } else {
+        $this->field_names = [];
+      }
     }
-    return $this->field_name;
+    return $this->field_names;
   }
 
-  public function pidRedirect(Request $request, string $pid = NULL) {
-    $node = $this->entityTypeManager->getStorage('node')->loadByProperties([
-      $this->getFieldName() => $pid
-    ]);
+  public function pidRedirect(Request $request, string $pid = NULL)
+  {
+    foreach ($this->getFieldNames() as $field_name) {
+      $node = $this->entityTypeManager->getStorage('node')->loadByProperties([
+        $field_name => $pid
+      ]);
 
-    if (!empty($node)) {
-      $node = reset($node);
-      return $this->redirect('entity.node.canonical', ['node' => $node->id()]);
+      if (!empty($node)) {
+        $node = reset($node);
+        return $this->redirect('entity.node.canonical', ['node' => $node->id()]);
+      }
     }
-    else {
-      $cache_metadata = new CacheableMetadata();
-      $cache_metadata->addCacheTags($request->query->all());
-      throw new CacheableNotFoundHttpException($cache_metadata);
-    }
+    $cache_metadata = new CacheableMetadata();
+    $cache_metadata->addCacheTags($request->query->all());
+    throw new CacheableNotFoundHttpException($cache_metadata);
   }
 }

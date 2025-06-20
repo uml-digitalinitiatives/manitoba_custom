@@ -1,7 +1,7 @@
 services:
   manitoba_custom.settings_form:
     class: Drupal\manitoba_custom\Form\SettingsForm
-    arguments: [ '@config.factory', '@config.typed', '@entity_type.bundle.info', '@entity_field.manager' ]
+    arguments: [ '@config.factory', '@entity_type.bundle.info', '@entity_field.manager', '@config.typed' ]
     tags:
       - { name: 'form', id: manitoba_custom.settings }
   manitoba_custom.logger:
