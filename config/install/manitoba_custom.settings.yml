@@ -2,3 +2,4 @@ redirect_mappings:
   -
     node_type: 'islandora_object'
     field: 'field_pid'
+skipped_models: []

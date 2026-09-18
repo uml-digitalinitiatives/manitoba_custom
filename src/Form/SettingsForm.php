@@ -8,6 +8,7 @@ use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\taxonomy\Entity\Vocabulary;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class SettingsForm extends ConfigFormBase
@@ -28,6 +29,13 @@ class SettingsForm extends ConfigFormBase
   protected EntityTypeBundleInfoInterface $entityTypeBundleInfo;
 
   /**
+   * The module handler service.
+   *
+   * @var \Drupal\Core\Extension\ModuleHandlerInterface
+   */
+  protected ModuleHandlerInterface $moduleHandler;
+
+  /**
    * The configuration name.
    */
   public const CONFIG_NAME = 'manitoba_custom.settings';
@@ -39,16 +47,20 @@ class SettingsForm extends ConfigFormBase
    *  The configuration factory service.
    * @param \Drupal\Core\Config\TypedConfigManagerInterface|null $typedConfigManager
    *  The typed configuration manager service.
+   * @param \Drupal\Core\Extension\ModuleHandlerInterface $moduleHandler
+   *  The module handler service.
    */
   public function __construct(
     ConfigFactoryInterface $configFactory,
     EntityTypeBundleInfoInterface $bundleInfo,
     EntityFieldManagerInterface $entityFieldManager,
     TypedConfigManagerInterface $typedConfigManager = NULL,
+    ModuleHandlerInterface $moduleHandler
   )
   {
     $this->entityFieldManager = $entityFieldManager;
     $this->entityTypeBundleInfo = $bundleInfo;
+    $this->moduleHandler = $moduleHandler;
     parent::__construct($configFactory, $typedConfigManager);
   }
 
@@ -62,6 +74,7 @@ class SettingsForm extends ConfigFormBase
       $container->get('entity_type.bundle.info'),
       $container->get('entity_field.manager'),
       $container->get('config.typed'),
+      $container->get('module.handler'),
     );
   }
 
@@ -186,6 +199,48 @@ class SettingsForm extends ConfigFormBase
         'wrapper' => 'redirect-mappings-wrapper',
       ],
     ];
+
+    $form['pathauto_skipper'] = [
+      '#type' => 'fieldset',
+      '#title' => $this->t('Islandora Pathauto Skipping'),
+      '#description' => $this->t('Settings for the Islandora Pathauto Skipping.'),
+      '#prefix' => '<div id="pathauth-skipping-wrapper">',
+      '#suffix' => '</div>',
+      '#tree' => TRUE,
+    ];
+    if ($this->moduleHandler->moduleExists('pathauto')) {
+      $form['pathauto_skipper']['description'] = [
+        '#markup' => $this->t('The following models are available for skipping pathauto generation.'),
+      ];
+      $form['pathauto_skipper']['skipped_labels'] = [
+        '#type' => 'table',
+        '#title' => $this->t('Islandora Model Terms'),
+        '#header' => [
+          '',
+          $this->t('Model Term'),
+        ],
+        '#rows' => [],
+      ];
+      $models = $this->getModelTerms();
+      $skipped_models = $config->get('skipped_labels') ?? [];
+      foreach ($models as $term) {
+        $form['pathauto_skipper']['skipped_labels'][$term->id()]['action'] = [
+          'checkbox' => [
+            '#type' => 'checkbox',
+            '#default_value' => in_array($term->id(), $skipped_models),
+          ],
+        ];
+        $form['pathauto_skipper']['skipped_labels'][$term->id()]['model_name'] = [
+          '#markup' => $term->label(),
+        ];
+      }
+    } else {
+      $form['pathauto_skipper']['description'] = [
+        '#markup' => $this->t('The Pathauto module is not enabled. Please enable it to use this feature.'),
+      ];
+      $form['pathauto_skipper']['skipped_labels'] = [];
+    }
+
     return $form;
   }
 
@@ -249,8 +304,18 @@ class SettingsForm extends ConfigFormBase
       }
     });
     $values = array_filter($values); // Filter empty mappings.
+    $skip_values = $form_state->getValue(['pathauto_skipper', 'skipped_labels']);
+    array_walk($skip_values, function (&$value, $key) {
+      if (is_array($value) && isset($value['checkbox'])) {
+        $value = $value['checkbox'] ? $key : NULL;
+      } else {
+        $value = NULL;
+      }
+    });
+    $skip_values = array_filter($skip_values);
     $this->config('manitoba_custom.settings')
       ->set('redirect_mappings', $values)
+      ->set('skipped_labels', $skip_values)
       ->save();
     parent::submitForm($form, $form_state);
   }
@@ -302,4 +367,36 @@ class SettingsForm extends ConfigFormBase
     return $form['pid_redirector'];
   }
 
+  /**
+   * Loads taxonomy terms from the vocabulary targeted by field_model.
+   *
+   * @return \Drupal\taxonomy\TermInterface[]
+   *   Taxonomy terms in the vocabulary referenced by field_model on the
+   *   islandora_object content type.
+   */
+  public function getModelTerms() {
+    $field_definition = $this->entityFieldManager
+      ->getFieldDefinitions('node', 'islandora_object')['field_model'] ?? NULL;
+
+    if (!$field_definition || $field_definition->getType() !== 'entity_reference') {
+      return [];
+    }
+
+    $settings = $field_definition->getSettings();
+    if (($settings['target_type'] ?? NULL) !== 'taxonomy_term') {
+      return [];
+    }
+
+    $handler_settings = $settings['handler_settings'] ?? [];
+    $target_bundles = array_values($handler_settings['target_bundles'] ?? []);
+    $vocabulary_id = $target_bundles[0] ?? NULL;
+
+    if (!$vocabulary_id || !Vocabulary::load($vocabulary_id)) {
+      return [];
+    }
+
+    /** @var \Drupal\taxonomy\TermStorageInterface $term_storage */
+    $term_storage = \Drupal::entityTypeManager()->getStorage('taxonomy_term');
+    return $term_storage->loadTree($vocabulary_id, 0, NULL, TRUE);
+  }
 }

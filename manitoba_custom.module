@@ -1,6 +1,10 @@
+      $node->path->pathauto = PathautoState::SKIP;
 <?php
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Routing\RouteMatchInterface;
+use Drupal\node\NodeInterface;
+use Drupal\views\ViewExecutable;
 
 /**
 * @file
@@ -14,8 +18,7 @@ function manitoba_custom_help($route_name, RouteMatchInterface $route_match)
 {
   switch ($route_name) {
     case 'help.page.manitoba_custom':
-      $output = '';
-      $output .= '<h3>' . t('About') . '</h3>';
+      $output = '<h3>' . t('About') . '</h3>';
       $output .= '<p>' . t('Manitoba Custom provides customizations for the University of Manitoba Drupal distribution.') . '</p>';
       return $output;
 
@@ -33,5 +36,85 @@ function manitoba_custom_preprocess_mirador(&$variables) {
     $config['window']['allowClose'] = FALSE;
     $config['workspaceControlPanel']['enabled'] = FALSE;
     // $config['window']['defaultView'] = 'book';
+  }
+}
+
+/**
+ * Implements hook_form_alter().
+ */
+function manitoba_custom_form_alter(&$form, FormStateInterface $form_state, $form_id) {
+  // Alter the search form to add a placeholder and change the button text.
+  if ($form_id == 'openid_connect_login_form') {
+    $form['openid_connect_client_generic_login']['#value'] = t('Log in with your U Manitoba Account');
+  }
+}
+
+/**
+ * Implements hook_views_pre_render().
+ */
+function manitoba_custom_views_pre_render(ViewExecutable $view) {
+  if ($view->id() == 'iiif_manifest' && $view->current_display == 'rest_export_intermediate') {
+    if (!empty($view->result)) {
+      $row = $view->result[0];
+      $title_handler = $view->field['title'];
+      $title = manitoba_custom_views_first_string($title_handler->getValue($row));
+      $date_handler = $view->field['field_edtf_date_issued'];
+      $date = manitoba_custom_views_first_string($date_handler->getValue($row));
+      if (!empty($date)) {
+        $title .= " - $date";
+      }
+      $view->setTitle($title);
+      $view->display_handler->setOption('page_title', $title);
+    }
+  }
+}
+
+function manitoba_custom_views_first_string($value) {
+  if (!is_array($value)) {
+    return $value;
+  }
+  if (isset($value[0]['#markup'])) {
+    return $value[0]['#markup'];
+  }
+  if (isset($value[0]['value'])) {
+    return $value[0]['value'];
+   }
+  foreach ($value as $item) {
+    if (is_string($item)) {
+      return $item;
+    }
+    if (is_array($item)) {
+      foreach ($item as $sub) {
+        if (is_string($sub)) {
+          return $sub;
+        }
+      }
+    }
+  }
+  return '';
+}
+
+/**
+ * Implements hook_ENTITY_TYPE_presave()
+ */
+function manitoba_custom_node_presave(NodeInterface $node) {
+  if (
+    !\Drupal::moduleHandler()->moduleExists('pathauto') ||
+    !$node->hasField('path')
+  ) {
+    return;
+  }
+
+  if (!$node->hasField('field_model') || $node->get('field_model')->isEmpty()) {
+    return;
+  }
+  $config = \Drupal::config('manitoba_custom.settings');
+  $skip_labels = $config->get('skipped_labels') ?? [];
+  foreach ($node->get('field_model')->referencedEntities() as $term) {
+    if (in_array($term->label(), $skip_labels)) {
+      // Same as PathautoState::SKIP, but avoids a dependency on pathauto.
+      $node->get('path')->pathauto = 0;
+      break;
+    }
   }
 }
