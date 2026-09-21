@@ -6,6 +6,7 @@ use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Config\TypedConfigManagerInterface;
 use Drupal\Core\Entity\EntityFieldManagerInterface;
 use Drupal\Core\Entity\EntityTypeBundleInfoInterface;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\taxonomy\Entity\Vocabulary;
@@ -74,7 +75,7 @@ class SettingsForm extends ConfigFormBase
       $container->get('entity_type.bundle.info'),
       $container->get('entity_field.manager'),
       $container->get('config.typed'),
-      $container->get('module.handler'),
+      $container->get('module_handler'),
     );
   }
 
@@ -212,7 +213,7 @@ class SettingsForm extends ConfigFormBase
       $form['pathauto_skipper']['description'] = [
         '#markup' => $this->t('The following models are available for skipping pathauto generation.'),
       ];
-      $form['pathauto_skipper']['skipped_labels'] = [
+      $form['pathauto_skipper']['skipped_terms'] = [
         '#type' => 'table',
         '#title' => $this->t('Islandora Model Terms'),
         '#header' => [
@@ -222,23 +223,29 @@ class SettingsForm extends ConfigFormBase
         '#rows' => [],
       ];
       $models = $this->getModelTerms();
-      $skipped_models = $config->get('skipped_labels') ?? [];
+      $skipped_models = $config->get('skipped_terms') ?? [];
+      if (!$form_state->hasValue(['pathauto_skipper', 'skipped_terms'])) {
+        $form_state->setValue(['pathauto_skipper', 'skipped_terms'], $skipped_models);
+      }
+      $counter = 0;
       foreach ($models as $term) {
-        $form['pathauto_skipper']['skipped_labels'][$term->id()]['action'] = [
+        $form['pathauto_skipper']['skipped_terms'][$counter]['action'] = [
           'checkbox' => [
             '#type' => 'checkbox',
             '#default_value' => in_array($term->id(), $skipped_models),
+            '#return_value' => $term->id(),
           ],
         ];
-        $form['pathauto_skipper']['skipped_labels'][$term->id()]['model_name'] = [
+        $form['pathauto_skipper']['skipped_terms'][$counter]['model_name'] = [
           '#markup' => $term->label(),
         ];
+        $counter += 1;
       }
     } else {
       $form['pathauto_skipper']['description'] = [
         '#markup' => $this->t('The Pathauto module is not enabled. Please enable it to use this feature.'),
       ];
-      $form['pathauto_skipper']['skipped_labels'] = [];
+      $form['pathauto_skipper']['skipped_terms'] = [];
     }
 
     return $form;
@@ -304,10 +311,10 @@ class SettingsForm extends ConfigFormBase
       }
     });
     $values = array_filter($values); // Filter empty mappings.
-    $skip_values = $form_state->getValue(['pathauto_skipper', 'skipped_labels']);
+    $skip_values = $form_state->getValue(['pathauto_skipper', 'skipped_terms']);
     array_walk($skip_values, function (&$value, $key) {
-      if (is_array($value) && isset($value['checkbox'])) {
-        $value = $value['checkbox'] ? $key : NULL;
+      if (is_array($value) && isset($value['action']) && isset($value['action']['checkbox'])) {
+        $value = $value['action']['checkbox'];
       } else {
         $value = NULL;
       }
@@ -315,7 +322,7 @@ class SettingsForm extends ConfigFormBase
     $skip_values = array_filter($skip_values);
     $this->config('manitoba_custom.settings')
       ->set('redirect_mappings', $values)
-      ->set('skipped_labels', $skip_values)
+      ->set('skipped_terms', $skip_values)
       ->save();
     parent::submitForm($form, $form_state);
   }

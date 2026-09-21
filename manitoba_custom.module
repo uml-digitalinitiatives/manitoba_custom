@@ -109,9 +109,9 @@ function manitoba_custom_node_presave(NodeInterface $node) {
     return;
   }
   $config = \Drupal::config('manitoba_custom.settings');
-  $skip_labels = $config->get('skipped_labels') ?? [];
+  $skip_terms = $config->get('skipped_terms') ?? [];
   foreach ($node->get('field_model')->referencedEntities() as $term) {
-    if (in_array($term->label(), $skip_labels)) {
+    if (in_array($term->id(), $skip_terms)) {
       // Same as PathautoState::SKIP, but avoids a dependency on pathauto.
       $node->get('path')->pathauto = 0;
       break;
