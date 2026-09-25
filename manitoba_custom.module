@@ -32,9 +32,27 @@ function manitoba_custom_preprocess_mirador(&$variables) {
   if (isset($variables['mirador_view_id']) &&
     isset($variables['#attached']['drupalSettings']['mirador']['viewers']['#' . $variables['mirador_view_id']])) {
     $config = &$variables['#attached']['drupalSettings']['mirador']['viewers']['#' . $variables['mirador_view_id']];
+    // Removes the ability to close the window.
     $config['window']['allowClose'] = FALSE;
+    // Make text not selectable
+    $config['window']['textOverlay']['selectable'] = FALSE;
+    // Removes workspace control panel
     $config['workspaceControlPanel']['enabled'] = FALSE;
+    // Customize the search highlight colors. These colours are not good, change before implementing.
+    //$config['theme']['palette']['search'] =
+    //  [
+    //    'default' => ['fillStyle' => '#cc0000', 'globalAlpha' => 0.5],
+    //    'selected' => ['fillStyle' => '#ccee00', 'globalAlpha' => 0.6]
+    //  ];
+    // Change the default view to book view. Not a great idea, but just marks where the option is.
     // $config['window']['defaultView'] = 'book';
+    // This takes the search term from the query string and passes it into Mirador's config.
+    $search_term = \Drupal::request()->query->get('search_hocr');
+    if ($search_term) {
+      $config['windows'][0]['defaultSearchQuery'] = $search_term;
+    }
+    // Make sure the cache accounts for the search term when caching the page.
+    $variables['#cache']['contexts'][] = 'url.query_args:search_hocr';
   }
 }
 
@@ -64,6 +82,28 @@ function manitoba_custom_views_pre_render(ViewExecutable $view) {
       }
       $view->setTitle($title);
       $view->display_handler->setOption('page_title', $title);
+    }
+  }
+  else if ($view->id() == 'solr_search_content' && $view->current_display == 'solr_search_page_1') {
+    // Only operate on the search results page.
+    $term = $view->getExposedInput()['a'] ?? null;
+    if (is_array($term)) {
+      $term = reset($term);
+      if (is_array($term) && isset($term['v'])) {
+        $term = $term['v'];
+      }
+    }
+    if (empty($term)) {
+      // Only continue if there is a search term.
+      return;
+    }
+
+    $field_id = 'title';
+    if (isset($view->field[$field_id])) {
+      $view->field[$field_id]->options['alter']['make_link'] = true;
+      $view->field[$field_id]->options['alter']['query'] = [
+        'search_hocr' => $term,
+      ];
     }
   }
 }

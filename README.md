@@ -18,6 +18,7 @@ with a specific content model. To use this feature, you must have the [Pathauto]
 - Adds a redirect for legacy Islandora (7.x) content.
 - Adds a Formatter to format a Linked Data field to redirect to an internal view.
 - Adds a way to skip Pathauto Alias creation based on Islandora content types.
+- Pushes search terms from the search results page into the Mirador IIIF viewer.
 - Multiple U of M specific customizations.
 
 ### Legacy Islandora Redirect
@@ -37,6 +38,15 @@ Additionally, this feature makes several assumptions based on a default Islandor
 - The node bundle is named `islandora_object`.
 - The `islandora_object` bundle has a field named `field_model` that links to a taxonomy vocabulary.
 
+### Push Search Terms to Mirador IIIF Viewer
+This feature alters the search results view to pull the search terms from the query string and add them to the link on the `title` field
+of the search results using the query parameter `search_hocr`. 
+
+This is fragile because if you remove the `title` field or add another field it will require a change here.
+
+Then in the islandora_mirador `hook_preprocess_mirador()` function, it will check for the `search_hocr` query parameter and if it exists, 
+it will add it to the Mirador IIIF viewer configuration on the first window. It also adds a cache context for this parameter to ensure the search is not cached.
+
 ### Additional Customizations
 This module also:
 - Changes the button text for openId generic login to "Log in with your U Manitoba Account"
@@ -44,3 +54,7 @@ This module also:
 
 ## Configuration
 The module has a simple configuration page under Admin -> Configuration -> Islandora -> Manitoba Custom.
+
+## Future Work
+- Make the "Skip Pathauto Alias Creation" more customizable by allowing the user to choose the entity bundle type and the field name from that bundle.
+- Make the "Push Search Terms to Mirador IIIF Viewer" more robust by allowing the user to choose the field or fields to add the query parameter to in the search results view.
