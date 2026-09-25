@@ -143,15 +143,21 @@ function manitoba_custom_node_presave(NodeInterface $node) {
   ) {
     return;
   }
+  $config = \Drupal::config('manitoba_custom.settings');
+  $field_name = $config->get('pathauto_field_name');
+  $bundle_name = $config->get('pathauto_bundle_name');
 
-  if (!$node->hasField('field_model') || $node->get('field_model')->isEmpty()) {
+  if ($node->bundle() !== $bundle_name) {
     return;
   }
-  $config = \Drupal::config('manitoba_custom.settings');
-  $skip_terms = $config->get('skipped_terms') ?? [];
-  foreach ($node->get('field_model')->referencedEntities() as $term) {
+  if (!$node->hasField($field_name) || $node->get($field_name)->isEmpty()) {
+    return;
+  }
+
+  $skip_terms = $config->get('pathauto_skipped_models') ?? [];
+  foreach ($node->get($field_name)->referencedEntities() as $term) {
     if (in_array($term->id(), $skip_terms)) {
-      // Same as PathautoState::SKIP, but avoids a dependency on pathauto.
+      // 0 is the same as PathautoState::SKIP, but avoids the dependency on pathauto.
       $node->get('path')->pathauto = 0;
       break;
     }

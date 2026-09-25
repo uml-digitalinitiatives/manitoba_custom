@@ -2,4 +2,6 @@ redirect_mappings:
   -
     node_type: 'islandora_object'
     field: 'field_pid'
-skipped_models: []
+pathauto_skipped_models: []
+pathauto_bundle_name: 'islandora_object'
+pathauto_field_name: 'field_model'

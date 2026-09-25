@@ -137,26 +137,26 @@ class SettingsForm extends ConfigFormBase
     $user_input = $form_state->getUserInput();
     $triggering_element = $form_state->getTriggeringElement();
     for ($i = 0; $i < $num_rows; $i++) {
-      $bundle = $form_state->getValue(['pid_redirector', 'redirect_mappings', $i, 'node_type']) ?? '';
-      $field = $form_state->getValue(['pid_redirector', 'redirect_mappings', $i, 'field']) ?? '';
+      $redirect_bundle = $form_state->getValue(['pid_redirector', 'redirect_mappings', $i, 'node_type']) ?? '';
+      $redirect_field = $form_state->getValue(['pid_redirector', 'redirect_mappings', $i, 'field']) ?? '';
       if (isset($triggering_element['#name']) && !preg_match('/remove_row_(\d+)$/', $triggering_element['#name'])) {
         // If the user is removing a row, skip using user input as it won't have the latest values.
         if (isset($user_input['pid_redirector']['redirect_mappings'][$i]['node_type']) &&
-        $user_input['pid_redirector']['redirect_mappings'][$i]['node_type'] !== $bundle) {
-          $bundle = $user_input['pid_redirector']['redirect_mappings'][$i]['node_type'];
+        $user_input['pid_redirector']['redirect_mappings'][$i]['node_type'] !== $redirect_bundle) {
+          $redirect_bundle = $user_input['pid_redirector']['redirect_mappings'][$i]['node_type'];
         }
         if (isset($user_input['pid_redirector']['redirect_mappings'][$i]['field']) &&
-        $user_input['pid_redirector']['redirect_mappings'][$i]['field'] !== $field) {
-          $field = $user_input['pid_redirector']['redirect_mappings'][$i]['field'];
+        $user_input['pid_redirector']['redirect_mappings'][$i]['field'] !== $redirect_field) {
+          $redirect_field = $user_input['pid_redirector']['redirect_mappings'][$i]['field'];
         }
       }
-      $fields = ['' => $this->t('- Select -')];
+      $redirect_fields = ['' => $this->t('- Select -')];
 
-      if ($bundle) {
-        $definitions = $this->entityFieldManager->getFieldDefinitions('node', $bundle);
+      if ($redirect_bundle) {
+        $definitions = $this->entityFieldManager->getFieldDefinitions('node', $redirect_bundle);
         foreach ($definitions as $field_name => $field_def) {
           if ($field_def->getType() == 'string') {
-            $fields[$field_name] = $field_def->getLabel();
+            $redirect_fields[$field_name] = $field_def->getLabel();
           }
         }
       }
@@ -164,7 +164,7 @@ class SettingsForm extends ConfigFormBase
       $form['pid_redirector']['redirect_mappings'][$i]['node_type'] = [
         '#type' => 'select',
         '#options' => $bundle_options,
-        '#default_value' => $bundle,
+        '#default_value' => $redirect_bundle,
         '#ajax' => [
           'callback' => '::updateRedirectFields',
           'event' => 'change',
@@ -174,8 +174,8 @@ class SettingsForm extends ConfigFormBase
 
       $form['pid_redirector']['redirect_mappings'][$i]['field'] = [
         '#type' => 'select',
-        '#options' => $fields,
-        '#default_value' => $field,
+        '#options' => $redirect_fields,
+        '#default_value' => $redirect_field,
       ];
 
       $form['pid_redirector']['redirect_mappings'][$i]['remove'] = [
@@ -205,7 +205,7 @@ class SettingsForm extends ConfigFormBase
       '#type' => 'fieldset',
       '#title' => $this->t('Islandora Pathauto Skipping'),
       '#description' => $this->t('Settings for the Islandora Pathauto Skipping.'),
-      '#prefix' => '<div id="pathauth-skipping-wrapper">',
+      '#prefix' => '<div id="pathauto-skipping-wrapper">',
       '#suffix' => '</div>',
       '#tree' => TRUE,
     ];
@@ -213,6 +213,41 @@ class SettingsForm extends ConfigFormBase
       $form['pathauto_skipper']['description'] = [
         '#markup' => $this->t('The following models are available for skipping pathauto generation.'),
       ];
+      $pathauto_bundle = $form_state->getValue(['pathauto_skipper', 'node_bundle']) ?? '';
+      $pathauto_field = $form_state->getValue(['pathauto_skipper', 'node_field']) ?? '';
+      $form['pathauto_skipper']['node_bundle'] = [
+        '#type' => 'select',
+        '#options' => $bundle_options,
+        '#default_value' => $pathauto_bundle,
+        '#ajax' => [
+          'callback' => '::updatePathAuto',
+          'event' => 'change',
+          'wrapper' => 'pathauto-skipping-wrapper',
+        ],
+      ];
+
+      $pathauto_fields = ['' => $this->t('- Select -')];
+
+      if ($pathauto_bundle) {
+        $definitions = $this->entityFieldManager->getFieldDefinitions('node', $pathauto_bundle);
+        foreach ($definitions as $field_name => $field_def) {
+          if ($field_def->getType() == 'string') {
+            $pathauto_fields[$field_name] = $field_def->getLabel();
+          }
+        }
+      }
+
+      $form['pathauto_skipper']['node_field'] = [
+        '#type' => 'select',
+        '#options' => $pathauto_fields,
+        '#default_value' => $pathauto_field,
+        '#ajax' => [
+          'callback' => '::updatePathAuto',
+          'event' => 'change',
+          'wrapper' => 'pathauto-skipping-wrapper',
+        ],
+      ];
+
       $form['pathauto_skipper']['skipped_terms'] = [
         '#type' => 'table',
         '#title' => $this->t('Islandora Model Terms'),
@@ -222,24 +257,27 @@ class SettingsForm extends ConfigFormBase
         ],
         '#rows' => [],
       ];
-      $models = $this->getModelTerms();
-      $skipped_models = $config->get('skipped_terms') ?? [];
-      if (!$form_state->hasValue(['pathauto_skipper', 'skipped_terms'])) {
-        $form_state->setValue(['pathauto_skipper', 'skipped_terms'], $skipped_models);
-      }
-      $counter = 0;
-      foreach ($models as $term) {
-        $form['pathauto_skipper']['skipped_terms'][$counter]['action'] = [
-          'checkbox' => [
-            '#type' => 'checkbox',
-            '#default_value' => in_array($term->id(), $skipped_models),
-            '#return_value' => $term->id(),
-          ],
-        ];
-        $form['pathauto_skipper']['skipped_terms'][$counter]['model_name'] = [
-          '#markup' => $term->label(),
-        ];
-        $counter += 1;
+
+      if ($pathauto_field) {
+        $models = $this->getModelTerms($pathauto_bundle, $pathauto_field);
+        $skipped_models = $config->get('pathauto_skipped_models') ?? [];
+        if (!$form_state->hasValue(['pathauto_skipper', 'skipped_terms'])) {
+          $form_state->setValue(['pathauto_skipper', 'skipped_terms'], $skipped_models);
+        }
+        $counter = 0;
+        foreach ($models as $term) {
+          $form['pathauto_skipper']['skipped_terms'][$counter]['action'] = [
+            'checkbox' => [
+              '#type' => 'checkbox',
+              '#default_value' => in_array($term->id(), $skipped_models),
+              '#return_value' => $term->id(),
+            ],
+          ];
+          $form['pathauto_skipper']['skipped_terms'][$counter]['model_name'] = [
+            '#markup' => $term->label(),
+          ];
+          $counter += 1;
+        }
       }
     } else {
       $form['pathauto_skipper']['description'] = [
@@ -311,19 +349,26 @@ class SettingsForm extends ConfigFormBase
       }
     });
     $values = array_filter($values); // Filter empty mappings.
+    $this->config('manitoba_custom.settings')
+      ->set('redirect_mappings', $values);
+    $skip_bundle = $form_state->getValue(['pathauto_skipper', 'node_bundle']);
+    $skip_field = $form_state->getValue(['pathauto_skipper', 'node_field']);
     $skip_values = $form_state->getValue(['pathauto_skipper', 'skipped_terms']);
     array_walk($skip_values, function (&$value, $key) {
       if (is_array($value) && isset($value['action']) && isset($value['action']['checkbox'])) {
         $value = $value['action']['checkbox'];
       } else {
-        $value = NULL;
+        $value = null;
       }
     });
     $skip_values = array_filter($skip_values);
-    $this->config('manitoba_custom.settings')
-      ->set('redirect_mappings', $values)
-      ->set('skipped_terms', $skip_values)
-      ->save();
+    if ($skip_bundle && $skip_field && !empty($skip_values)) {
+      $this->config('manitoba_custom.settings')
+        ->set('pathauto_skipped_models', $skip_values)
+        ->set('pathauto_bundle_name', $skip_bundle)
+        ->set('pathauto_field_name', $skip_field);
+    }
+    $this->config('manitoba_custom.settings')->save();
     parent::submitForm($form, $form_state);
   }
 
@@ -375,15 +420,22 @@ class SettingsForm extends ConfigFormBase
   }
 
   /**
+   * Ajax callback to update the Pathauto skipping fields based on the selected content bundle and field.
+   */
+  public function updatePathAuto(array &$form, FormStateInterface $form_state) {
+    return $form['pathauto_skipper'];
+  }
+
+  /**
    * Loads taxonomy terms from the vocabulary targeted by field_model.
    *
    * @return \Drupal\taxonomy\TermInterface[]
    *   Taxonomy terms in the vocabulary referenced by field_model on the
    *   islandora_object content type.
    */
-  public function getModelTerms() {
+  public function getModelTerms(string $bundle_name, string $field_name): array {
     $field_definition = $this->entityFieldManager
-      ->getFieldDefinitions('node', 'islandora_object')['field_model'] ?? NULL;
+      ->getFieldDefinitions('node', $bundle_name)[$field_name] ?? NULL;
 
     if (!$field_definition || $field_definition->getType() !== 'entity_reference') {
       return [];
