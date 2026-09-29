@@ -84,7 +84,7 @@ class SettingsForm extends ConfigFormBase
    */
   protected function getEditableConfigNames()
   {
-    return ['manitoba_custom.settings'];
+    return [self::CONFIG_NAME];
   }
 
   /**
@@ -213,10 +213,18 @@ class SettingsForm extends ConfigFormBase
       $form['pathauto_skipper']['description'] = [
         '#markup' => $this->t('The following models are available for skipping pathauto generation.'),
       ];
-      $pathauto_bundle = $form_state->getValue(['pathauto_skipper', 'node_bundle']) ?? '';
-      $pathauto_field = $form_state->getValue(['pathauto_skipper', 'node_field']) ?? '';
+      $pathauto_bundle = $form_state->getValue(['pathauto_skipper', 'node_bundle'], '');
+      if (empty($pathauto_bundle)) {
+        $pathauto_bundle = $config->get('pathauto_bundle_name') ?? '';
+      }
+      $pathauto_field = $form_state->getValue(['pathauto_skipper', 'node_field'], '');
+      if (empty($pathauto_field)) {
+        $pathauto_field = $config->get('pathauto_field_name') ?? '';
+      }
       $form['pathauto_skipper']['node_bundle'] = [
         '#type' => 'select',
+        '#title' => $this->t('Content Bundle'),
+        '#description' => $this->t('Select the content bundle of your Islandora object.'),
         '#options' => $bundle_options,
         '#default_value' => $pathauto_bundle,
         '#ajax' => [
@@ -231,34 +239,39 @@ class SettingsForm extends ConfigFormBase
       if ($pathauto_bundle) {
         $definitions = $this->entityFieldManager->getFieldDefinitions('node', $pathauto_bundle);
         foreach ($definitions as $field_name => $field_def) {
-          if ($field_def->getType() == 'string') {
+          if ($field_def->getType() == 'entity_reference' && $field_def->getSetting('target_type') == 'taxonomy_term') {
             $pathauto_fields[$field_name] = $field_def->getLabel();
           }
         }
+
+        $form['pathauto_skipper']['node_field'] = [
+          '#type' => 'select',
+          '#title' => $this->t('Model Field'),
+          '#description' => $this->t('Select the field that stores your Islandora model terms.'),
+          '#options' => $pathauto_fields,
+          '#default_value' => $pathauto_field,
+          '#ajax' => [
+            'callback' => '::updatePathAuto',
+            'event' => 'change',
+            'wrapper' => 'pathauto-skipping-wrapper',
+          ],
+        ];
       }
 
-      $form['pathauto_skipper']['node_field'] = [
-        '#type' => 'select',
-        '#options' => $pathauto_fields,
-        '#default_value' => $pathauto_field,
-        '#ajax' => [
-          'callback' => '::updatePathAuto',
-          'event' => 'change',
-          'wrapper' => 'pathauto-skipping-wrapper',
-        ],
-      ];
-
-      $form['pathauto_skipper']['skipped_terms'] = [
-        '#type' => 'table',
-        '#title' => $this->t('Islandora Model Terms'),
-        '#header' => [
-          '',
-          $this->t('Model Term'),
-        ],
-        '#rows' => [],
-      ];
-
       if ($pathauto_field) {
+        $form['pathauto_skipper']['description'] = [
+          '#markup' => $this->t('Select the Islandora model terms for which you want to skip pathauto generation.'),
+        ];
+        $form['pathauto_skipper']['skipped_terms'] = [
+          '#type' => 'table',
+          '#title' => $this->t('Islandora Model Terms'),
+          '#header' => [
+            '',
+            $this->t('Model Term'),
+          ],
+          '#rows' => [],
+        ];
+
         $models = $this->getModelTerms($pathauto_bundle, $pathauto_field);
         $skipped_models = $config->get('pathauto_skipped_models') ?? [];
         if (!$form_state->hasValue(['pathauto_skipper', 'skipped_terms'])) {
@@ -349,8 +362,8 @@ class SettingsForm extends ConfigFormBase
       }
     });
     $values = array_filter($values); // Filter empty mappings.
-    $this->config('manitoba_custom.settings')
-      ->set('redirect_mappings', $values);
+    $editableConfig = $this->config(self::CONFIG_NAME);
+    $editableConfig->set('redirect_mappings', $values);
     $skip_bundle = $form_state->getValue(['pathauto_skipper', 'node_bundle']);
     $skip_field = $form_state->getValue(['pathauto_skipper', 'node_field']);
     $skip_values = $form_state->getValue(['pathauto_skipper', 'skipped_terms']);
@@ -362,13 +375,13 @@ class SettingsForm extends ConfigFormBase
       }
     });
     $skip_values = array_filter($skip_values);
-    if ($skip_bundle && $skip_field && !empty($skip_values)) {
-      $this->config('manitoba_custom.settings')
+    if (!empty($skip_bundle) && !empty($skip_field) && !empty($skip_values)) {
+      $editableConfig
         ->set('pathauto_skipped_models', $skip_values)
         ->set('pathauto_bundle_name', $skip_bundle)
         ->set('pathauto_field_name', $skip_field);
     }
-    $this->config('manitoba_custom.settings')->save();
+    $editableConfig->save();
     parent::submitForm($form, $form_state);
   }
 
