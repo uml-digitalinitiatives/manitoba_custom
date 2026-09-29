@@ -33,10 +33,10 @@ in the display of the content type's fields.
 ### Skip Pathauto Alias Creation
 This feature allows you to skip the creation of Pathauto aliases for Islandora content with a specific content model. 
 You can configure the content models for which you want to skip alias creation in the module's settings.
+
 ***Note***: This feature requires the Pathauto module to be installed and enabled. If Pathauto is not installed, this feature will not work.
-Additionally, this feature makes several assumptions based on a default Islandora installation, namely:
-- The node bundle is named `islandora_object`.
-- The `islandora_object` bundle has a field named `field_model` that links to a taxonomy vocabulary.
+
+You can configure the content model and field that links to the Islandora model and then choose the models to skip alias creation for.
 
 ### Push Search Terms to Mirador IIIF Viewer
 This feature alters the search results view to pull the search terms from the query string and add them to the link on the `title` field
@@ -56,5 +56,4 @@ This module also:
 The module has a simple configuration page under Admin -> Configuration -> Islandora -> Manitoba Custom.
 
 ## Future Work
-- Make the "Skip Pathauto Alias Creation" more customizable by allowing the user to choose the entity bundle type and the field name from that bundle.
 - Make the "Push Search Terms to Mirador IIIF Viewer" more robust by allowing the user to choose the field or fields to add the query parameter to in the search results view.
